@@ -1,0 +1,749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>FieldSpend</title>
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FieldSpend">
+<meta name="theme-color" content="#0D0D14">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#0D0D14;--surface:#16161F;--s2:#1E1E2A;--border:#2A2A3A;
+  --accent:#7B61FF;--red:#FF6B6B;--green:#00E5A0;
+  --text:#F0F0F8;--muted:#6B6B88;--light:#E8E6FF;
+}
+html,body{background:var(--bg);font-family:'Syne',sans-serif;color:var(--text);min-height:100vh;overscroll-behavior:none;}
+
+.app{max-width:430px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;}
+
+/* HEADER */
+.hdr{background:linear-gradient(160deg,#0D0D14 0%,#14102A 100%);padding:52px 20px 0;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.hdr-top{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:14px;}
+.hdr h1{font-size:24px;font-weight:800;letter-spacing:-1px;}
+.hdr h1 em{font-style:normal;color:var(--accent);}
+.hdr p{font-size:10px;color:var(--muted);margin-top:2px;font-family:'DM Mono',monospace;}
+.pill{background:var(--accent);color:#fff;padding:7px 14px;border-radius:20px;font-size:13px;font-weight:700;font-family:'DM Mono',monospace;white-space:nowrap;transition:background .3s;}
+.pill.loading{background:var(--s2);color:var(--muted);}
+
+.tabs{display:flex;gap:2px;}
+.tab{flex:1;padding:10px 4px;border:none;border-radius:10px 10px 0 0;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;background:var(--s2);color:var(--muted);letter-spacing:.3px;}
+.tab.on{background:var(--surface);color:var(--text);box-shadow:inset 0 -2px 0 var(--accent);}
+
+/* CONTENT */
+.content{flex:1;padding:16px 16px 100px;overflow-y:auto;}
+.pane{display:none;}
+.pane.on{display:block;}
+
+/* CARD */
+.card{background:var(--surface);border:1px solid var(--border);border-radius:18px;padding:20px;display:flex;flex-direction:column;gap:14px;}
+
+/* FORM */
+.sec-label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;}
+.row{display:flex;gap:10px;}
+.field{display:flex;flex-direction:column;gap:6px;flex:1;}
+.field label{font-size:10px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.8px;}
+.field input,.field select{background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;color:var(--text);font-family:'DM Mono',monospace;font-size:14px;outline:none;width:100%;-webkit-appearance:none;transition:border .2s;}
+.field input:focus,.field select:focus{border-color:var(--accent);}
+.field input::placeholder{color:var(--muted);}
+.field select option{background:var(--s2);}
+
+/* CATEGORY */
+.add-cat-btn{background:none;border:1px dashed var(--border);color:var(--muted);border-radius:8px;padding:7px 12px;font-size:11px;font-weight:700;font-family:'Syne',sans-serif;cursor:pointer;margin-top:8px;width:100%;transition:all .15s;}
+.add-cat-btn:active{border-color:var(--accent);color:var(--accent);}
+.add-cat-row{display:none;gap:6px;margin-top:8px;align-items:center;}
+.add-cat-row.on{display:flex;}
+.cat-icon-input{width:46px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 6px;color:var(--text);font-size:18px;text-align:center;outline:none;flex-shrink:0;}
+.cat-name-input{flex:1;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:9px 11px;color:var(--text);font-family:'DM Mono',monospace;font-size:13px;outline:none;}
+.cat-name-input:focus{border-color:var(--accent);}
+.cat-name-input::placeholder{color:var(--muted);}
+.cat-save-btn{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:9px 14px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;}
+.cat-cancel-btn{background:var(--s2);color:var(--muted);border:1px solid var(--border);border-radius:8px;padding:9px 10px;font-size:12px;cursor:pointer;flex-shrink:0;}
+
+/* TOGGLE */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:12px 16px;}
+.toggle-info{display:flex;flex-direction:column;gap:2px;}
+.toggle-label{font-size:14px;font-weight:700;}
+.toggle-sub{font-size:11px;color:var(--muted);}
+.toggle-switch{width:52px;height:28px;border-radius:14px;border:none;background:var(--border);cursor:pointer;position:relative;transition:background .2s;flex-shrink:0;}
+.toggle-switch.on{background:var(--accent);}
+.toggle-knob{position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:transform .2s;display:block;pointer-events:none;}
+.toggle-switch.on .toggle-knob{transform:translateX(24px);}
+
+/* UPLOAD */
+.upload{background:var(--s2);border:1.5px dashed var(--border);border-radius:12px;padding:14px;display:flex;align-items:center;gap:12px;cursor:pointer;position:relative;overflow:hidden;transition:border-color .2s;}
+.upload:active{border-color:var(--accent);}
+.upload input{position:absolute;inset:0;opacity:0;cursor:pointer;font-size:0;}
+.upload .ui{font-size:26px;flex-shrink:0;}
+.upload .ut p{font-size:13px;font-weight:600;}
+.upload .ut span{font-size:11px;color:var(--muted);}
+.upload .uth{width:44px;height:44px;border-radius:8px;object-fit:cover;border:1px solid var(--border);display:none;flex-shrink:0;}
+
+/* BUTTONS */
+.btn{background:var(--accent);color:#fff;border:none;border-radius:12px;padding:15px;font-family:'Syne',sans-serif;font-size:15px;font-weight:700;cursor:pointer;width:100%;transition:opacity .15s,transform .1s;letter-spacing:.3px;}
+.btn:active{opacity:.85;transform:scale(.98);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+.btn.outline{background:transparent;border:1.5px solid var(--accent);color:var(--accent);}
+.btn.outline:active{background:rgba(123,97,255,.15);}
+
+/* LIST */
+.list{display:flex;flex-direction:column;gap:10px;}
+.exp-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:12px;animation:si .2s ease;}
+@keyframes si{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.exp-icon{width:42px;height:42px;background:var(--s2);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.exp-info{flex:1;min-width:0;}
+.exp-info .vn{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.exp-info .mt{font-size:11px;color:var(--muted);margin-top:2px;font-family:'DM Mono',monospace;}
+.exp-info .ds{font-size:11px;color:#8888AA;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.rbadge{background:rgba(0,229,160,.12);border:1px solid rgba(0,229,160,.3);color:var(--green);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;margin-top:4px;display:inline-block;}
+.pbadge{background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.2);color:var(--red);font-size:9px;font-weight:700;padding:2px 6px;border-radius:4px;margin-top:4px;display:inline-block;}
+.exp-right{text-align:right;flex-shrink:0;}
+.exp-right .am{font-size:15px;font-weight:700;font-family:'DM Mono',monospace;color:var(--red);}
+.exp-right .ded{font-size:10px;color:var(--green);margin-top:2px;font-family:'DM Mono',monospace;}
+.del{background:rgba(255,107,107,.1);border:1px solid rgba(255,107,107,.2);color:var(--red);border-radius:8px;padding:6px 8px;font-size:14px;cursor:pointer;flex-shrink:0;transition:background .15s;}
+.del:active{background:rgba(255,107,107,.25);}
+
+/* SUMMARY */
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;}
+.sc{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;}
+.sc.wide{grid-column:span 2;}
+.sc .sl{font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.8px;}
+.sc .sv{font-size:20px;font-weight:800;font-family:'DM Mono',monospace;margin-top:6px;}
+.sc.ac .sv{color:var(--accent);}
+.sc.gr .sv{color:var(--green);}
+.sc.rd .sv{color:var(--red);}
+
+.cb{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;}
+.cb h3{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;}
+.cr{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);}
+.cr:last-child{border-bottom:none;}
+.cr .cc{font-size:18px;}
+.cr .cn{flex:1;font-size:13px;font-weight:600;}
+.cr .ca{font-size:13px;font-weight:700;font-family:'DM Mono',monospace;color:var(--red);}
+.bw{height:4px;background:var(--s2);border-radius:2px;margin-top:4px;}
+.bb{height:4px;background:var(--accent);border-radius:2px;}
+
+/* EMPTY */
+.empty{text-align:center;padding:52px 20px;color:var(--muted);}
+.empty .ei{font-size:52px;margin-bottom:12px;}
+.empty p{font-size:14px;line-height:1.6;}
+
+/* TOAST */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:20px;font-size:13px;font-weight:700;z-index:999;white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .2s;}
+.toast.show{opacity:1;}
+.toast.ok{background:var(--green);color:#0D0D14;}
+.toast.err{background:var(--red);color:#fff;}
+
+/* biz pct hidden when personal */
+#biz-pct-wrap{transition:opacity .2s;}
+#biz-pct-wrap.hidden{display:none;}
+
+/* MONTH FILTER */
+.mchip{flex-shrink:0;padding:6px 14px;border-radius:20px;border:1px solid var(--border);background:var(--s2);color:var(--muted);font-family:'Syne',sans-serif;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;transition:all .15s;}
+.mchip.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+
+/* EDIT MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:200;display:none;align-items:flex-end;justify-content:center;}
+.modal-overlay.on{display:flex;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:20px 20px 0 0;padding:20px;width:100%;max-width:430px;max-height:85vh;overflow-y:auto;display:flex;flex-direction:column;gap:14px;}
+.modal-title{font-size:16px;font-weight:800;display:flex;justify-content:space-between;align-items:center;}
+.modal-close{background:var(--s2);border:none;color:var(--muted);border-radius:8px;padding:6px 10px;font-size:14px;cursor:pointer;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <div class="hdr">
+    <div class="hdr-top">
+      <div>
+        <h1>Field<em>Spend</em></h1>
+        <p>2026 Sales Season · Toronto/GTA · Vantage</p>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px">
+        <div class="pill loading" id="total-pill">loading...</div>
+        <div id="today-pill" style="font-size:10px;color:var(--muted);font-family:'DM Mono',monospace;display:none">today: <span id="today-amt">$0.00</span></div>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab on" onclick="switchTab('add')">➕ Add</button>
+      <button class="tab" onclick="switchTab('log')">📋 Log</button>
+      <button class="tab" onclick="switchTab('summary')">📊 Summary</button>
+    </div>
+  </div>
+
+  <div class="content">
+
+    <!-- ADD PANE -->
+    <div class="pane on" id="pane-add">
+      <div class="card">
+
+        <!-- CATEGORY -->
+        <div>
+          <div class="sec-label">Category</div>
+          <div class="field">
+            <select id="cat-select"></select>
+          </div>
+          <button class="add-cat-btn" onclick="toggleAddCat()">+ Add custom category</button>
+          <div class="add-cat-row" id="add-cat-row">
+            <input class="cat-icon-input" id="new-icon" value="🏷️" maxlength="2" />
+            <input class="cat-name-input" id="new-cat-name" placeholder="Category name..." />
+            <button class="cat-save-btn" onclick="addCategory()">Add</button>
+            <button class="cat-cancel-btn" onclick="toggleAddCat()">✕</button>
+          </div>
+        </div>
+
+        <!-- DATE -->
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="f-date" />
+        </div>
+
+        <!-- VENDOR -->
+        <div class="field">
+          <label>Vendor / Payee</label>
+          <input type="text" id="f-vendor" placeholder="Shell, Tim Hortons, Rogers..." />
+        </div>
+
+        <!-- DESCRIPTION -->
+        <div class="field">
+          <label>Description (optional)</label>
+          <input type="text" id="f-desc" placeholder="Gas — downtown Toronto knocking day" />
+        </div>
+
+        <!-- AMOUNT + GST -->
+        <div class="row">
+          <div class="field">
+            <label>Total Amount ($)</label>
+            <input type="number" inputmode="decimal" id="f-amount" placeholder="0.00" />
+          </div>
+          <div class="field">
+            <label>HST Paid ($)</label>
+            <input type="number" inputmode="decimal" id="f-gst" placeholder="auto" />
+          </div>
+        </div>
+
+        <!-- PAYMENT + BIZ PCT -->
+        <div class="row">
+          <div class="field">
+            <label>Payment</label>
+            <select id="f-payment">
+              <option>Cash</option>
+              <option>Debit</option>
+              <option>Credit</option>
+              <option>e-Transfer</option>
+            </select>
+          </div>
+          <div class="field" id="biz-pct-wrap">
+            <label>Business %</label>
+            <input type="number" inputmode="numeric" id="f-bizpct" placeholder="100" value="100" />
+          </div>
+        </div>
+
+        <!-- WORK/PERSONAL TOGGLE -->
+        <div class="toggle-row">
+          <div class="toggle-info">
+            <span class="toggle-label" id="toggle-label">💼 Work Expense</span>
+            <span class="toggle-sub" id="toggle-sub">Tax deductible</span>
+          </div>
+          <button class="toggle-switch on" id="work-toggle" onclick="toggleWork()">
+            <span class="toggle-knob"></span>
+          </button>
+        </div>
+
+        <!-- RECEIPT -->
+        <div>
+          <div class="sec-label">Receipt</div>
+          <div class="upload" onclick="document.getElementById('f-receipt').click()">
+            <input type="file" id="f-receipt" accept="image/*" capture="environment" style="display:none" />
+            <span class="ui" id="upload-icon">📸</span>
+            <div class="ut">
+              <p id="upload-text">Snap or upload receipt</p>
+              <span id="upload-sub">JPG, PNG, HEIC</span>
+            </div>
+            <img class="uth" id="receipt-thumb" src="" alt="receipt" />
+          </div>
+        </div>
+
+        <button class="btn" id="submit-btn" onclick="addExpense()">Add Expense</button>
+      </div>
+    </div>
+
+    <!-- LOG PANE -->
+    <div class="pane" id="pane-log">
+      <div id="month-filter-bar" style="display:flex;gap:6px;overflow-x:auto;padding-bottom:12px;scrollbar-width:none;margin-bottom:4px"></div>
+      <div class="list" id="expense-list">
+        <div class="empty"><div class="ei">⏳</div><p>Loading...</p></div>
+      </div>
+    </div>
+
+    <!-- SUMMARY PANE -->
+    <div class="pane" id="pane-summary">
+      <div class="sg">
+        <div class="sc ac"><div class="sl">Total Spent</div><div class="sv" id="s-total">$0.00</div></div>
+        <div class="sc gr"><div class="sl">Deductible</div><div class="sv" id="s-ded">$0.00</div></div>
+        <div class="sc rd"><div class="sl">HST ITCs</div><div class="sv" id="s-gst">$0.00</div></div>
+        <div class="sc"><div class="sl">Entries</div><div class="sv" id="s-count" style="color:var(--text)">0</div></div>
+        <div class="sc wide"><div class="sl">Net Pre-Tax Spend</div><div class="sv" id="s-net" style="color:var(--text);font-size:18px">$0.00</div></div>
+      </div>
+      <div class="cb" id="cat-breakdown" style="margin-bottom:16px"></div>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <button class="btn outline" onclick="exportCSV(false)">📤 Export All</button>
+        <button class="btn outline" onclick="exportCSV(true)" style="border-color:var(--green);color:var(--green)">🧾 Export Tax (Work Only)</button>
+        <button class="btn outline" onclick="loadExpenses()">🔄 Refresh from Cloud</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modal-overlay" id="edit-modal" onclick="closeEdit(event)">
+  <div class="modal">
+    <div class="modal-title">Edit Expense <button class="modal-close" onclick="closeEditModal()">✕</button></div>
+    <input type="hidden" id="edit-id" />
+    <div class="field"><label>Date</label><input type="date" id="edit-date" /></div>
+    <div class="field"><label>Vendor</label><input type="text" id="edit-vendor" /></div>
+    <div class="field"><label>Category</label><select id="edit-cat"></select></div>
+    <div class="field"><label>Description</label><input type="text" id="edit-desc" /></div>
+    <div class="row">
+      <div class="field"><label>Amount ($)</label><input type="number" inputmode="decimal" id="edit-amount" /></div>
+      <div class="field"><label>HST ($)</label><input type="number" inputmode="decimal" id="edit-gst" /></div>
+    </div>
+    <div class="row">
+      <div class="field"><label>Payment</label>
+        <select id="edit-payment"><option>Cash</option><option>Debit</option><option>Credit</option><option>e-Transfer</option></select>
+      </div>
+      <div class="field"><label>Business %</label><input type="number" inputmode="numeric" id="edit-bizpct" /></div>
+    </div>
+    <button class="btn" onclick="saveEdit()">Save Changes</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://kludlwcobfwmrrvnhknz.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtsdWRsd2NvYmZ3bXJydm5oa256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY4MTczNjIsImV4cCI6MjA5MjM5MzM2Mn0.tK7M2yh0seeWzhb6aSkGjLooaViukVZ-DOMbxLc-KIM';
+const { createClient } = supabase;
+const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const DEFAULT_CATEGORIES = [
+  { label:'Gas/Fuel', icon:'⛽' },
+  { label:'Phone', icon:'📱' },
+  { label:'Meals', icon:'🍔' },
+  { label:'Equipment', icon:'🔧' },
+  { label:'Marketing', icon:'📣' },
+  { label:'Other', icon:'💼' },
+];
+
+let categories = JSON.parse(localStorage.getItem('fs_cats') || 'null') || DEFAULT_CATEGORIES;
+let expenses = [];
+let isWork = true;
+let receiptFile = null;
+let receiptName = '';
+
+// ---- INIT ----
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('f-amount').addEventListener('blur', autoGST);
+  document.getElementById('f-receipt').addEventListener('change', handleFile);
+  renderCategorySelect();
+  loadExpenses();
+});
+
+// ---- TABS ----
+function switchTab(tab) {
+  document.querySelectorAll('.pane').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  document.getElementById('pane-' + tab).classList.add('on');
+  document.querySelectorAll('.tab').forEach(t => {
+    if (t.textContent.toLowerCase().includes(tab === 'add' ? 'add' : tab === 'log' ? 'log' : 'sum')) t.classList.add('on');
+  });
+  if (tab === 'summary') updateSummary();
+}
+
+// ---- CATEGORIES ----
+function renderCategorySelect() {
+  const sel = document.getElementById('cat-select');
+  const current = sel.value;
+  sel.innerHTML = '';
+  categories.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.label;
+    opt.textContent = c.icon + ' ' + c.label;
+    sel.appendChild(opt);
+  });
+  if (current && categories.find(c => c.label === current)) sel.value = current;
+}
+
+function toggleAddCat() {
+  const row = document.getElementById('add-cat-row');
+  row.classList.toggle('on');
+  if (row.classList.contains('on')) document.getElementById('new-cat-name').focus();
+}
+
+function addCategory() {
+  const label = document.getElementById('new-cat-name').value.trim();
+  const icon = document.getElementById('new-icon').value.trim() || '🏷️';
+  if (!label) return;
+  if (categories.find(c => c.label.toLowerCase() === label.toLowerCase())) {
+    showToast('Category already exists', true); return;
+  }
+  categories.push({ label, icon });
+  localStorage.setItem('fs_cats', JSON.stringify(categories));
+  renderCategorySelect();
+  document.getElementById('cat-select').value = label;
+  document.getElementById('new-cat-name').value = '';
+  document.getElementById('new-icon').value = '🏷️';
+  document.getElementById('add-cat-row').classList.remove('on');
+  showToast('✓ "' + label + '" added!');
+}
+
+// ---- TOGGLE ----
+function toggleWork() {
+  isWork = !isWork;
+  const btn = document.getElementById('work-toggle');
+  const lbl = document.getElementById('toggle-label');
+  const sub = document.getElementById('toggle-sub');
+  const bizWrap = document.getElementById('biz-pct-wrap');
+  btn.classList.toggle('on', isWork);
+  lbl.textContent = isWork ? '💼 Work Expense' : '🏠 Personal';
+  sub.textContent = isWork ? 'Tax deductible' : 'Not deductible';
+  bizWrap.classList.toggle('hidden', !isWork);
+  if (isWork) document.getElementById('f-bizpct').value = '100';
+}
+
+// ---- RECEIPT ----
+function handleFile(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  receiptFile = file;
+  receiptName = file.name;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    document.getElementById('upload-icon').textContent = '✅';
+    document.getElementById('upload-text').textContent = 'Receipt ready to upload';
+    document.getElementById('upload-sub').textContent = file.name;
+    const thumb = document.getElementById('receipt-thumb');
+    thumb.src = ev.target.result;
+    thumb.style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+
+function autoGST() {
+  const amt = parseFloat(document.getElementById('f-amount').value);
+  const gstField = document.getElementById('f-gst');
+  if (amt && !gstField.value) {
+    gstField.value = (amt / 1.13 * 0.13).toFixed(2);
+  }
+}
+
+// ---- ADD EXPENSE ----
+async function addExpense() {
+  const vendor = document.getElementById('f-vendor').value.trim();
+  const amount = parseFloat(document.getElementById('f-amount').value);
+  if (!vendor || !amount) { showToast('⚠️ Vendor & amount required', true); return; }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = 'Saving...';
+
+  // Upload receipt if present
+  let receipt_url = null;
+  if (receiptFile) {
+    btn.textContent = 'Uploading receipt...';
+    const ext = receiptFile.name.split('.').pop();
+    const path = `${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`;
+    const { data: uploadData, error: uploadError } = await db.storage.from('receipts').upload(path, receiptFile, { upsert: false });
+    if (uploadError) {
+      showToast('Receipt upload failed', true);
+      btn.disabled = false; btn.textContent = 'Add Expense'; return;
+    }
+    const { data: urlData } = db.storage.from('receipts').getPublicUrl(path);
+    receipt_url = urlData.publicUrl;
+  }
+
+  btn.textContent = 'Saving...';
+  const gstRaw = document.getElementById('f-gst').value;
+  const gst = gstRaw ? parseFloat(gstRaw) : parseFloat((amount / 1.13 * 0.13).toFixed(2));
+  const bizPct = isWork ? parseFloat(document.getElementById('f-bizpct').value || '100') : 0;
+
+  const payload = {
+    date: document.getElementById('f-date').value,
+    vendor,
+    category: document.getElementById('cat-select').value,
+    description: document.getElementById('f-desc').value.trim() || null,
+    amount: parseFloat(amount.toFixed(2)),
+    gst: parseFloat(gst.toFixed(2)),
+    net: parseFloat((amount - gst).toFixed(2)),
+    payment: document.getElementById('f-payment').value,
+    biz_pct: bizPct,
+    deductible: parseFloat((amount * bizPct / 100).toFixed(2)),
+    is_work: isWork,
+    receipt_name: receiptName || null,
+    receipt_url: receipt_url || null,
+  };
+
+  const { data, error } = await db.from('expenses').insert(payload).select().single();
+
+  btn.disabled = false;
+  btn.textContent = 'Add Expense';
+
+  if (error) { showToast('Failed to save', true); return; }
+
+  expenses.unshift(data);
+  updatePill();
+  clearForm();
+  showToast('✓ Expense saved!');
+}
+
+function clearForm() {
+  document.getElementById('f-vendor').value = '';
+  document.getElementById('f-desc').value = '';
+  document.getElementById('f-amount').value = '';
+  document.getElementById('f-gst').value = '';
+  receiptFile = null;
+  receiptName = '';
+  document.getElementById('upload-icon').textContent = '📸';
+  document.getElementById('upload-text').textContent = 'Snap or upload receipt';
+  document.getElementById('upload-sub').textContent = 'JPG, PNG, HEIC';
+  document.getElementById('receipt-thumb').style.display = 'none';
+  document.getElementById('f-receipt').value = '';
+}
+
+// ---- LOAD ----
+async function loadExpenses() {
+  const { data, error } = await db.from('expenses').select('*').order('date', { ascending: false }).order('created_at', { ascending: false });
+  if (error) { showToast('Failed to load', true); return; }
+  expenses = data || [];
+  updatePill();
+  renderList();
+  updateSummary();
+}
+
+function updatePill() {
+  const total = expenses.reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+  const pill = document.getElementById('total-pill');
+  pill.textContent = '$' + total.toFixed(2);
+  pill.classList.remove('loading');
+
+  const today = new Date().toISOString().slice(0,10);
+  const todayTotal = expenses.filter(e => e.date === today).reduce((s, e) => s + parseFloat(e.amount || 0), 0);
+  const todayPill = document.getElementById('today-pill');
+  const todayAmt = document.getElementById('today-amt');
+  if (todayTotal > 0) {
+    todayAmt.textContent = '$' + todayTotal.toFixed(2);
+    todayPill.style.display = 'block';
+  } else {
+    todayPill.style.display = 'none';
+  }
+}
+
+let activeMonth = 'all';
+
+function renderMonthFilter() {
+  const months = [...new Set(expenses.map(e => e.date.slice(0,7)))].sort().reverse();
+  const bar = document.getElementById('month-filter-bar');
+  if (months.length <= 1) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  bar.innerHTML = `<button class="mchip ${activeMonth==='all'?'on':''}" onclick="setMonth('all')">All</button>` +
+    months.map(m => {
+      const [yr, mo] = m.split('-');
+      const label = new Date(yr, mo-1).toLocaleString('default',{month:'short'}) + ' ' + yr;
+      return `<button class="mchip ${activeMonth===m?'on':''}" onclick="setMonth('${m}')">${label}</button>`;
+    }).join('');
+}
+
+function setMonth(m) {
+  activeMonth = m;
+  renderMonthFilter();
+  renderList();
+}
+
+// ---- RENDER LIST ----
+function renderList() {
+  renderMonthFilter();
+  const list = document.getElementById('expense-list');
+  const filtered = activeMonth === 'all' ? expenses : expenses.filter(e => e.date.slice(0,7) === activeMonth);
+  if (!filtered.length) {
+    list.innerHTML = '<div class="empty"><div class="ei">🧾</div><p>No expenses yet.<br>Add your first one!</p></div>';
+    return;
+  }
+  list.innerHTML = filtered.map(e => {
+    const cat = categories.find(c => c.label === e.category) || { icon: '💼' };
+    const isPersonal = e.is_work === false;
+    return `
+    <div class="exp-card" id="exp-${e.id}">
+      <div class="exp-icon" onclick="openEdit('${e.id}')" style="cursor:pointer">${cat.icon}</div>
+      <div class="exp-info" onclick="openEdit('${e.id}')" style="cursor:pointer">
+        <div class="vn">${e.vendor}</div>
+        <div class="mt">${e.date} · ${e.category} · ${e.payment}</div>
+        ${e.description ? `<div class="ds">${e.description}</div>` : ''}
+        ${e.receipt_url ? `<a href="${e.receipt_url}" target="_blank" class="rbadge" onclick="event.stopPropagation()">📎 View Receipt</a>` : e.receipt_name ? `<span class="rbadge">📎 ${e.receipt_name}</span>` : ''}
+        ${isPersonal ? `<span class="pbadge">🏠 Personal</span>` : ''}
+      </div>
+      <div class="exp-right" onclick="openEdit('${e.id}')" style="cursor:pointer">
+        <div class="am">$${parseFloat(e.amount).toFixed(2)}</div>
+        <div class="ded">↳ $${parseFloat(e.deductible||0).toFixed(2)}</div>
+      </div>
+      <button class="del" onclick="deleteExpense('${e.id}')">🗑</button>
+    </div>`;
+  }).join('');
+}
+
+// ---- DELETE ----
+async function deleteExpense(id) {
+  const { error } = await db.from('expenses').delete().eq('id', id);
+  if (error) { showToast('Delete failed', true); return; }
+  expenses = expenses.filter(e => e.id !== id);
+  document.getElementById('exp-' + id)?.remove();
+  updatePill();
+  showToast('Deleted');
+}
+
+// ---- SUMMARY ----
+function updateSummary() {
+  const totals = expenses.reduce((a, e) => ({
+    amount: a.amount + parseFloat(e.amount || 0),
+    gst: a.gst + parseFloat(e.gst || 0),
+    deductible: a.deductible + parseFloat(e.deductible || 0),
+  }), { amount: 0, gst: 0, deductible: 0 });
+
+  document.getElementById('s-total').textContent = '$' + totals.amount.toFixed(2);
+  document.getElementById('s-ded').textContent = '$' + totals.deductible.toFixed(2);
+  document.getElementById('s-gst').textContent = '$' + totals.gst.toFixed(2);
+  document.getElementById('s-count').textContent = expenses.length;
+  document.getElementById('s-net').textContent = '$' + (totals.amount - totals.gst).toFixed(2);
+
+  // Category breakdown
+  const bycat = categories.map(c => ({
+    ...c,
+    total: expenses.filter(e => e.category === c.label).reduce((s, e) => s + parseFloat(e.amount || 0), 0)
+  })).filter(c => c.total > 0).sort((a, b) => b.total - a.total);
+
+  const max = bycat[0]?.total || 1;
+  const bd = document.getElementById('cat-breakdown');
+  if (!bycat.length) { bd.style.display = 'none'; return; }
+  bd.style.display = 'block';
+  bd.innerHTML = '<h3>By Category</h3>' + bycat.map(c => `
+    <div class="cr">
+      <span class="cc">${c.icon}</span>
+      <div style="flex:1">
+        <div style="display:flex;justify-content:space-between">
+          <span class="cn">${c.label}</span>
+          <span class="ca">$${c.total.toFixed(2)}</span>
+        </div>
+        <div class="bw"><div class="bb" style="width:${(c.total/max*100).toFixed(1)}%"></div></div>
+      </div>
+    </div>`).join('');
+}
+
+// ---- EXPORT CSV ----
+function exportCSV(workOnly = false) {
+  const data = workOnly ? expenses.filter(e => e.is_work !== false) : expenses;
+  if (!data.length) { showToast('No expenses to export', true); return; }
+  const headers = ['Date','Vendor','Category','Description','Amount','GST/HST','Net','Payment','Biz%','Deductible','Work','Receipt'];
+  const rows = data.map(e => [
+    e.date, '"' + e.vendor + '"', e.category,
+    '"' + (e.description || '') + '"',
+    parseFloat(e.amount).toFixed(2),
+    parseFloat(e.gst).toFixed(2),
+    parseFloat(e.net).toFixed(2),
+    e.payment, e.biz_pct,
+    parseFloat(e.deductible).toFixed(2),
+    e.is_work ? 'Work' : 'Personal',
+    e.receipt_url || ''
+  ]);
+  const csv = [headers, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const suffix = workOnly ? '_TaxOnly' : '_All';
+  a.download = 'FieldSpend_2026' + suffix + '_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+  showToast(workOnly ? '🧾 Tax export ready!' : '📤 CSV exported!');
+}
+
+// ---- EDIT ----
+function openEdit(id) {
+  const e = expenses.find(x => x.id === id);
+  if (!e) return;
+  document.getElementById('edit-id').value = id;
+  document.getElementById('edit-date').value = e.date;
+  document.getElementById('edit-vendor').value = e.vendor;
+  document.getElementById('edit-desc').value = e.description || '';
+  document.getElementById('edit-amount').value = e.amount;
+  document.getElementById('edit-gst').value = e.gst;
+  document.getElementById('edit-payment').value = e.payment;
+  document.getElementById('edit-bizpct').value = e.biz_pct;
+  // populate cat select
+  const sel = document.getElementById('edit-cat');
+  sel.innerHTML = '';
+  categories.forEach(c => {
+    const opt = document.createElement('option');
+    opt.value = c.label;
+    opt.textContent = c.icon + ' ' + c.label;
+    sel.appendChild(opt);
+  });
+  sel.value = e.category;
+  document.getElementById('edit-modal').classList.add('on');
+}
+
+function closeEditModal() {
+  document.getElementById('edit-modal').classList.remove('on');
+}
+
+function closeEdit(e) {
+  if (e.target === document.getElementById('edit-modal')) closeEditModal();
+}
+
+async function saveEdit() {
+  const id = document.getElementById('edit-id').value;
+  const amount = parseFloat(document.getElementById('edit-amount').value);
+  const gst = parseFloat(document.getElementById('edit-gst').value);
+  const bizPct = parseFloat(document.getElementById('edit-bizpct').value || '100');
+  const payload = {
+    date: document.getElementById('edit-date').value,
+    vendor: document.getElementById('edit-vendor').value.trim(),
+    category: document.getElementById('edit-cat').value,
+    description: document.getElementById('edit-desc').value.trim() || null,
+    amount: parseFloat(amount.toFixed(2)),
+    gst: parseFloat(gst.toFixed(2)),
+    net: parseFloat((amount - gst).toFixed(2)),
+    payment: document.getElementById('edit-payment').value,
+    biz_pct: bizPct,
+    deductible: parseFloat((amount * bizPct / 100).toFixed(2)),
+  };
+  const { data, error } = await db.from('expenses').update(payload).eq('id', id).select().single();
+  if (error) { showToast('Save failed', true); return; }
+  const idx = expenses.findIndex(e => e.id === id);
+  if (idx !== -1) expenses[idx] = data;
+  closeEditModal();
+  updatePill();
+  renderList();
+  updateSummary();
+  showToast('✓ Updated!');
+}
+
+// ---- TOAST ----
+let toastTimer;
+function showToast(msg, err = false) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (err ? 'err' : 'ok');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+}
+</script>
+</body>
+</html>
