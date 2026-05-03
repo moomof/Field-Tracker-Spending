@@ -171,9 +171,9 @@ html,body{background:var(--bg);font-family:'Syne',sans-serif;color:var(--text);m
       </div>
     </div>
     <div class="tabs">
-      <button class="tab on" onclick="switchTab('add')">➕ Add</button>
-      <button class="tab" onclick="switchTab('log')">📋 Log</button>
-      <button class="tab" onclick="switchTab('summary')">📊 Summary</button>
+      <button class="tab on" data-tab="add" onclick="switchTab('add')">➕ Add</button>
+      <button class="tab" data-tab="log" onclick="switchTab('log')">📋 Log</button>
+      <button class="tab" data-tab="summary" onclick="switchTab('summary')">📊 Summary</button>
     </div>
   </div>
 
@@ -321,6 +321,15 @@ html,body{background:var(--bg);font-family:'Syne',sans-serif;color:var(--text);m
       </div>
       <div class="field"><label>Business %</label><input type="number" inputmode="numeric" id="edit-bizpct" /></div>
     </div>
+    <div class="toggle-row">
+      <div class="toggle-info">
+        <span class="toggle-label" id="edit-toggle-label">💼 Work Expense</span>
+        <span class="toggle-sub" id="edit-toggle-sub">Tax deductible</span>
+      </div>
+      <button class="toggle-switch on" id="edit-work-toggle" onclick="toggleEditWork()">
+        <span class="toggle-knob"></span>
+      </button>
+    </div>
     <button class="btn" onclick="saveEdit()">Save Changes</button>
   </div>
 </div>
@@ -364,9 +373,10 @@ function switchTab(tab) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
   document.getElementById('pane-' + tab).classList.add('on');
   document.querySelectorAll('.tab').forEach(t => {
-    if (t.textContent.toLowerCase().includes(tab === 'add' ? 'add' : tab === 'log' ? 'log' : 'sum')) t.classList.add('on');
+    if (t.getAttribute('data-tab') === tab) t.classList.add('on');
   });
   if (tab === 'summary') updateSummary();
+  if (tab === 'log') renderList();
 }
 
 // ---- CATEGORIES ----
@@ -510,6 +520,7 @@ function clearForm() {
   document.getElementById('f-desc').value = '';
   document.getElementById('f-amount').value = '';
   document.getElementById('f-gst').value = '';
+  document.getElementById('f-date').value = new Date().toISOString().slice(0,10);
   receiptFile = null;
   receiptName = '';
   document.getElementById('upload-icon').textContent = '📸';
@@ -517,6 +528,8 @@ function clearForm() {
   document.getElementById('upload-sub').textContent = 'JPG, PNG, HEIC';
   document.getElementById('receipt-thumb').style.display = 'none';
   document.getElementById('f-receipt').value = '';
+  // reset toggle to Work
+  if (!isWork) toggleWork();
 }
 
 // ---- LOAD ----
@@ -604,8 +617,9 @@ async function deleteExpense(id) {
   const { error } = await db.from('expenses').delete().eq('id', id);
   if (error) { showToast('Delete failed', true); return; }
   expenses = expenses.filter(e => e.id !== id);
-  document.getElementById('exp-' + id)?.remove();
   updatePill();
+  renderList();
+  updateSummary();
   showToast('Deleted');
 }
 
@@ -675,6 +689,17 @@ function exportCSV(workOnly = false) {
 }
 
 // ---- EDIT ----
+let editIsWork = true;
+
+function toggleEditWork() {
+  editIsWork = !editIsWork;
+  const btn = document.getElementById('edit-work-toggle');
+  btn.classList.toggle('on', editIsWork);
+  document.getElementById('edit-toggle-label').textContent = editIsWork ? '💼 Work Expense' : '🏠 Personal';
+  document.getElementById('edit-toggle-sub').textContent = editIsWork ? 'Tax deductible' : 'Not deductible';
+  if (editIsWork) document.getElementById('edit-bizpct').value = '100';
+}
+
 function openEdit(id) {
   const e = expenses.find(x => x.id === id);
   if (!e) return;
@@ -686,6 +711,12 @@ function openEdit(id) {
   document.getElementById('edit-gst').value = e.gst;
   document.getElementById('edit-payment').value = e.payment;
   document.getElementById('edit-bizpct').value = e.biz_pct;
+  // set work toggle
+  editIsWork = e.is_work !== false;
+  const toggleBtn = document.getElementById('edit-work-toggle');
+  toggleBtn.classList.toggle('on', editIsWork);
+  document.getElementById('edit-toggle-label').textContent = editIsWork ? '💼 Work Expense' : '🏠 Personal';
+  document.getElementById('edit-toggle-sub').textContent = editIsWork ? 'Tax deductible' : 'Not deductible';
   // populate cat select
   const sel = document.getElementById('edit-cat');
   sel.innerHTML = '';
@@ -711,7 +742,7 @@ async function saveEdit() {
   const id = document.getElementById('edit-id').value;
   const amount = parseFloat(document.getElementById('edit-amount').value);
   const gst = parseFloat(document.getElementById('edit-gst').value);
-  const bizPct = parseFloat(document.getElementById('edit-bizpct').value || '100');
+  const bizPct = editIsWork ? parseFloat(document.getElementById('edit-bizpct').value || '100') : 0;
   const payload = {
     date: document.getElementById('edit-date').value,
     vendor: document.getElementById('edit-vendor').value.trim(),
@@ -723,6 +754,7 @@ async function saveEdit() {
     payment: document.getElementById('edit-payment').value,
     biz_pct: bizPct,
     deductible: parseFloat((amount * bizPct / 100).toFixed(2)),
+    is_work: editIsWork,
   };
   const { data, error } = await db.from('expenses').update(payload).eq('id', id).select().single();
   if (error) { showToast('Save failed', true); return; }
@@ -746,5 +778,4 @@ function showToast(msg, err = false) {
 }
 </script>
 </body>
-  
 </html>
